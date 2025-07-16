@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Taupunkt Rechner</title>
+  <title>Taupunkt Rechner Freiburg</title>
   <style>
     body {
       font-family: sans-serif;
@@ -39,7 +39,7 @@
   <label>Luftfeuchtigkeit (%):</label>
   <input type="number" inputmode="decimal" pattern="[0-9]*" id="hum" />
 
-  <button onclick="calculate()">Berechnen</button>
+  <button id="calcBtn" onclick="calculate()">Berechnen</button>
 
   <div class="result" id="result"></div>
 
@@ -97,8 +97,10 @@
           Taupunkt: ${dp3.toFixed(1)} °C (${schwuele3})<br>
           ${trend}`;
 
-        // Führe initiale Berechnung durch
-        calculate();
+        // Warte minimal, dann berechne automatisch
+        setTimeout(() => {
+          document.getElementById('calcBtn').click();
+        }, 500);
 
       } catch (error) {
         console.error(error);
@@ -109,6 +111,11 @@
     function calculate() {
       const T = parseFloat(document.getElementById('temp').value);
       const RH = parseFloat(document.getElementById('hum').value);
+
+      if (isNaN(T) || isNaN(RH)) {
+        document.getElementById('result').innerHTML = "Bitte gültige Werte eingeben.";
+        return;
+      }
 
       const dewpoint = calculateDewpoint(T, RH);
       const schwuele = classifyDewpoint(dewpoint);
@@ -151,4 +158,3 @@
   </script>
 </body>
 </html>
-
