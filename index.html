@@ -5,27 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Taupunkt Rechner Freiburg</title>
   <style>
-    body {
-      font-family: sans-serif;
-      padding: 20px;
-      max-width: 400px;
-      margin: auto;
-    }
-    input {
-      font-size: 1.2em;
-      width: 100%;
-      margin-bottom: 10px;
-      padding: 5px;
-    }
-    button {
-      font-size: 1.2em;
-      width: 100%;
-      padding: 10px;
-    }
-    .result {
-      margin-top: 20px;
-      font-size: 1.2em;
-    }
+    body { font-family: sans-serif; padding: 20px; max-width: 400px; margin: auto; }
+    input { font-size: 1.2em; width: 100%; margin-bottom: 10px; padding: 5px; }
+    button { font-size: 1.2em; width: 100%; padding: 10px; }
+    .result { margin-top: 20px; font-size: 1.2em; }
   </style>
 </head>
 <body>
@@ -39,7 +22,7 @@
   <label>Luftfeuchtigkeit (%):</label>
   <input type="number" inputmode="decimal" pattern="[0-9]*" id="hum" />
 
-  <button id="calcBtn" onclick="calculate()">Berechnen</button>
+  <button onclick="calculate()">Berechnen</button>
 
   <div class="result" id="result"></div>
 
@@ -48,15 +31,12 @@
 
     async function fetchWeather() {
       try {
-        const currentUrl = `https://api.openweathermap.org/data/2.5/weather?q=Freiburg,DE&units=metric&appid=${apiKey}&lang=de`;
-        const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?q=Freiburg,DE&units=metric&appid=${apiKey}&lang=de`;
-
-        const [currentRes, forecastRes] = await Promise.all([
-          fetch(currentUrl),
-          fetch(forecastUrl)
-        ]);
-
+        const currentRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=Freiburg,DE&units=metric&appid=${apiKey}&lang=de`);
+        if (!currentRes.ok) throw new Error("Fehler beim Abruf der aktuellen Wetterdaten");
         const currentData = await currentRes.json();
+
+        const forecastRes = await fetch(`https://api.openweathermap.org/data/2.5/forecast?q=Freiburg,DE&units=metric&appid=${apiKey}&lang=de`);
+        if (!forecastRes.ok) throw new Error("Fehler beim Abruf der Vorhersage");
         const forecastData = await forecastRes.json();
 
         const T = currentData.main.temp;
@@ -68,14 +48,8 @@
         const dpNow = calculateDewpoint(T, RH);
         const schwueleNow = classifyDewpoint(dpNow);
 
-        document.getElementById('weatherInfo').innerHTML = 
-          `Aktuelles Wetter in Freiburg:<br>
-          Temperatur: ${T.toFixed(1)} °C<br>
-          Luftfeuchtigkeit: ${RH}%<br>
-          Taupunkt: ${dpNow.toFixed(1)} °C (${schwueleNow})`;
-
-        // Vorhersage für in ~3 Stunden
-        const forecast = forecastData.list[1]; // 3h Schritt
+        // Vorhersage in 3h
+        const forecast = forecastData.list[1];
         const T3 = forecast.main.temp;
         const RH3 = forecast.main.humidity;
         const dp3 = calculateDewpoint(T3, RH3);
@@ -83,28 +57,26 @@
 
         let trend = "";
         if (dp3 > dpNow) {
-          trend = "Es wird schwüler.";
+          trend = `In 3 Stunden steigt die Temperatur auf ${T3.toFixed(1)}°C bei ${RH3}% Feuchtigkeit. Es wird schwüler (${schwuele3}).`;
         } else if (dp3 < dpNow) {
-          trend = "Es wird angenehmer.";
+          trend = `In 3 Stunden sinkt die Luftfeuchtigkeit auf ${RH3}% bei ${T3.toFixed(1)}°C. Es wird angenehmer (${schwuele3}).`;
         } else {
-          trend = "Es bleibt gleich.";
+          trend = `In 3 Stunden bleibt es etwa gleich (${schwuele3}).`;
         }
 
-        document.getElementById('weatherInfo').innerHTML += 
-          `<br><br>In 3 Stunden:<br>
-          Temperatur: ${T3.toFixed(1)} °C<br>
-          Luftfeuchtigkeit: ${RH3}%<br>
-          Taupunkt: ${dp3.toFixed(1)} °C (${schwuele3})<br>
-          ${trend}`;
+        document.getElementById('weatherInfo').innerHTML = 
+          `Aktuelles Wetter in Freiburg:<br>
+          Temperatur: ${T.toFixed(1)} °C<br>
+          Luftfeuchtigkeit: ${RH}%<br>
+          Taupunkt: ${dpNow.toFixed(1)} °C (${schwueleNow})<br><br>` +
+          trend;
 
-        // Warte minimal, dann berechne automatisch
-        setTimeout(() => {
-          document.getElementById('calcBtn').click();
-        }, 500);
+        // Führe initiale Berechnung direkt durch
+        calculate();
 
       } catch (error) {
         console.error(error);
-        document.getElementById('weatherInfo').innerText = "Fehler beim Laden der Wetterdaten.";
+        document.getElementById('weatherInfo').innerText = error.message;
       }
     }
 
@@ -120,38 +92,24 @@
       const dewpoint = calculateDewpoint(T, RH);
       const schwuele = classifyDewpoint(dewpoint);
 
-      const deltaRh = 5;
-      const dp_more = calculateDewpoint(T, Math.min(RH + deltaRh,100));
-      const dp_less = calculateDewpoint(T, Math.max(RH - deltaRh,1));
-
       document.getElementById('result').innerHTML = 
         "Taupunkt: " + dewpoint.toFixed(1) + " °C<br>" +
-        schwuele + "<br><br>" +
-        "Bei +" + deltaRh + "% RH: " + dp_more.toFixed(1) + " °C (schwüler)<br>" +
-        "Bei -" + deltaRh + "% RH: " + dp_less.toFixed(1) + " °C (weniger schwül)";
+        schwuele;
     }
 
     function calculateDewpoint(T, RH) {
-      const a = 17.62;
-      const b = 243.12;
+      const a = 17.62, b = 243.12;
       const gamma = Math.log(RH/100) + (a * T)/(b + T);
       return (b * gamma) / (a - gamma);
     }
 
     function classifyDewpoint(dp) {
-      if (dp < 10) {
-        return "Fühlt sich frisch/kühl an.";
-      } else if (dp < 16) {
-        return "Angenehm.";
-      } else if (dp < 18) {
-        return "Leicht schwül.";
-      } else if (dp < 21) {
-        return "Schwül.";
-      } else if (dp < 24) {
-        return "Sehr schwül.";
-      } else {
-        return "Extreme Schwüle / tropisch.";
-      }
+      if (dp < 10) return "Fühlt sich frisch/kühl an.";
+      if (dp < 16) return "Angenehm.";
+      if (dp < 18) return "Leicht schwül.";
+      if (dp < 21) return "Schwül.";
+      if (dp < 24) return "Sehr schwül.";
+      return "Extreme Schwüle / tropisch.";
     }
 
     fetchWeather();
