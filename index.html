@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Taupunkt Rechner</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      max-width: 400px;
+      margin: auto;
+    }
+    input {
+      font-size: 1.2em;
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 5px;
+    }
+    button {
+      font-size: 1.2em;
+      width: 100%;
+      padding: 10px;
+    }
+    .result {
+      margin-top: 20px;
+      font-size: 1.2em;
+    }
+  </style>
+</head>
+<body>
+  <h1>Taupunkt Rechner</h1>
+
+  <label>Temperatur (°C):</label>
+  <input type="number" inputmode="decimal" pattern="[0-9]*" id="temp" value="22" />
+
+  <label>Luftfeuchtigkeit (%):</label>
+  <input type="number" inputmode="decimal" pattern="[0-9]*" id="hum" value="50" />
+
+  <button onclick="calculate()">Berechnen</button>
+
+  <div class="result" id="result"></div>
+
+  <script>
+    function calculate() {
+      const T = parseFloat(document.getElementById('temp').value);
+      const RH = parseFloat(document.getElementById('hum').value);
+
+      // Magnus-Formel
+      const a = 17.62;
+      const b = 243.12;
+      const gamma = Math.log(RH/100) + (a * T)/(b + T);
+      const dewpoint = (b * gamma) / (a - gamma);
+
+      let schwuele = "";
+      if (dewpoint < 10) {
+        schwuele = "Fühlt sich frisch/kühl an.";
+      } else if (dewpoint < 16) {
+        schwuele = "Angenehm.";
+      } else if (dewpoint < 18) {
+        schwuele = "Leicht schwül.";
+      } else if (dewpoint < 21) {
+        schwuele = "Schwül.";
+      } else if (dewpoint < 24) {
+        schwuele = "Sehr schwül.";
+      } else {
+        schwuele = "Extreme Schwüle / tropisch.";
+      }
+
+      // Ab welcher Feuchtigkeitsänderung wird es spürbar schwüler / weniger schwül?
+      const deltaRh = 5; // Beispiel: +/-5% RH führt meist zu spürbarer Änderung
+      const gamma_more = Math.log(Math.min(RH + deltaRh,100)/100) + (a * T)/(b + T);
+      const dp_more = (b * gamma_more) / (a - gamma_more);
+
+      const gamma_less = Math.log(Math.max(RH - deltaRh,1)/100) + (a * T)/(b + T);
+      const dp_less = (b * gamma_less) / (a - gamma_less);
+
+      document.getElementById('result').innerHTML = 
+        "Taupunkt: " + dewpoint.toFixed(1) + " °C<br>" +
+        schwuele + "<br><br>" +
+        "Bei +" + deltaRh + "% RH: " + dp_more.toFixed(1) + " °C (schwüler)<br>" +
+        "Bei -" + deltaRh + "% RH: " + dp_less.toFixed(1) + " °C (weniger schwül)";
+    }
+
+    // OPTIONAL: OpenWeather API Integration
+  
+    async function fetchWeather() {
+      const apiKey = 'DEIN_API_KEY_HIER';
+      const url = `https://api.openweathermap.org/data/2.5/weather?q=Freiburg,DE&units=metric&appid=${apiKey}&lang=de`;
+      const response = await fetch(url);
+      const data = await response.json();
+      document.getElementById('temp').value = data.main.temp;
+      document.getElementById('hum').value = data.main.humidity;
+    }
+    // fetchWeather(); // Entkommentieren, um beim Laden Freiburg-Wetter abzurufen
+  
+  </script>
+</body>
+</html>
