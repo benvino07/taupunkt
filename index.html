@@ -29,51 +29,93 @@
   </style>
 </head>
 <body>
-  <h1>Taupunkt Rechner</h1>
+  <h1>Taupunkt Rechner Freiburg</h1>
+
+  <div id="weatherInfo">Lade aktuelle Wetterdaten...</div>
 
   <label>Temperatur (°C):</label>
-  <input type="number" inputmode="decimal" pattern="[0-9]*" id="temp" value="22" />
+  <input type="number" inputmode="decimal" pattern="[0-9]*" id="temp" />
 
   <label>Luftfeuchtigkeit (%):</label>
-  <input type="number" inputmode="decimal" pattern="[0-9]*" id="hum" value="50" />
+  <input type="number" inputmode="decimal" pattern="[0-9]*" id="hum" />
 
   <button onclick="calculate()">Berechnen</button>
 
   <div class="result" id="result"></div>
 
   <script>
+    const apiKey = '14ab2fd9354a34c320b01404fb29c66d';
+
+    async function fetchWeather() {
+      try {
+        const currentUrl = `https://api.openweathermap.org/data/2.5/weather?q=Freiburg,DE&units=metric&appid=${apiKey}&lang=de`;
+        const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?q=Freiburg,DE&units=metric&appid=${apiKey}&lang=de`;
+
+        const [currentRes, forecastRes] = await Promise.all([
+          fetch(currentUrl),
+          fetch(forecastUrl)
+        ]);
+
+        const currentData = await currentRes.json();
+        const forecastData = await forecastRes.json();
+
+        const T = currentData.main.temp;
+        const RH = currentData.main.humidity;
+
+        document.getElementById('temp').value = T;
+        document.getElementById('hum').value = RH;
+
+        const dpNow = calculateDewpoint(T, RH);
+        const schwueleNow = classifyDewpoint(dpNow);
+
+        document.getElementById('weatherInfo').innerHTML = 
+          `Aktuelles Wetter in Freiburg:<br>
+          Temperatur: ${T.toFixed(1)} °C<br>
+          Luftfeuchtigkeit: ${RH}%<br>
+          Taupunkt: ${dpNow.toFixed(1)} °C (${schwueleNow})`;
+
+        // Vorhersage für in ~3 Stunden
+        const forecast = forecastData.list[1]; // 3h Schritt
+        const T3 = forecast.main.temp;
+        const RH3 = forecast.main.humidity;
+        const dp3 = calculateDewpoint(T3, RH3);
+        const schwuele3 = classifyDewpoint(dp3);
+
+        let trend = "";
+        if (dp3 > dpNow) {
+          trend = "Es wird schwüler.";
+        } else if (dp3 < dpNow) {
+          trend = "Es wird angenehmer.";
+        } else {
+          trend = "Es bleibt gleich.";
+        }
+
+        document.getElementById('weatherInfo').innerHTML += 
+          `<br><br>In 3 Stunden:<br>
+          Temperatur: ${T3.toFixed(1)} °C<br>
+          Luftfeuchtigkeit: ${RH3}%<br>
+          Taupunkt: ${dp3.toFixed(1)} °C (${schwuele3})<br>
+          ${trend}`;
+
+        // Führe initiale Berechnung durch
+        calculate();
+
+      } catch (error) {
+        console.error(error);
+        document.getElementById('weatherInfo').innerText = "Fehler beim Laden der Wetterdaten.";
+      }
+    }
+
     function calculate() {
       const T = parseFloat(document.getElementById('temp').value);
       const RH = parseFloat(document.getElementById('hum').value);
 
-      // Magnus-Formel
-      const a = 17.62;
-      const b = 243.12;
-      const gamma = Math.log(RH/100) + (a * T)/(b + T);
-      const dewpoint = (b * gamma) / (a - gamma);
+      const dewpoint = calculateDewpoint(T, RH);
+      const schwuele = classifyDewpoint(dewpoint);
 
-      let schwuele = "";
-      if (dewpoint < 10) {
-        schwuele = "Fühlt sich frisch/kühl an.";
-      } else if (dewpoint < 16) {
-        schwuele = "Angenehm.";
-      } else if (dewpoint < 18) {
-        schwuele = "Leicht schwül.";
-      } else if (dewpoint < 21) {
-        schwuele = "Schwül.";
-      } else if (dewpoint < 24) {
-        schwuele = "Sehr schwül.";
-      } else {
-        schwuele = "Extreme Schwüle / tropisch.";
-      }
-
-      // Ab welcher Feuchtigkeitsänderung wird es spürbar schwüler / weniger schwül?
-      const deltaRh = 5; // Beispiel: +/-5% RH führt meist zu spürbarer Änderung
-      const gamma_more = Math.log(Math.min(RH + deltaRh,100)/100) + (a * T)/(b + T);
-      const dp_more = (b * gamma_more) / (a - gamma_more);
-
-      const gamma_less = Math.log(Math.max(RH - deltaRh,1)/100) + (a * T)/(b + T);
-      const dp_less = (b * gamma_less) / (a - gamma_less);
+      const deltaRh = 5;
+      const dp_more = calculateDewpoint(T, Math.min(RH + deltaRh,100));
+      const dp_less = calculateDewpoint(T, Math.max(RH - deltaRh,1));
 
       document.getElementById('result').innerHTML = 
         "Taupunkt: " + dewpoint.toFixed(1) + " °C<br>" +
@@ -82,18 +124,31 @@
         "Bei -" + deltaRh + "% RH: " + dp_less.toFixed(1) + " °C (weniger schwül)";
     }
 
-    // OPTIONAL: OpenWeather API Integration
-  
-    async function fetchWeather() {
-      const apiKey = 'DEIN_API_KEY_HIER';
-      const url = `https://api.openweathermap.org/data/2.5/weather?q=Freiburg,DE&units=metric&appid=${apiKey}&lang=de`;
-      const response = await fetch(url);
-      const data = await response.json();
-      document.getElementById('temp').value = data.main.temp;
-      document.getElementById('hum').value = data.main.humidity;
+    function calculateDewpoint(T, RH) {
+      const a = 17.62;
+      const b = 243.12;
+      const gamma = Math.log(RH/100) + (a * T)/(b + T);
+      return (b * gamma) / (a - gamma);
     }
-    // fetchWeather(); // Entkommentieren, um beim Laden Freiburg-Wetter abzurufen
-  
+
+    function classifyDewpoint(dp) {
+      if (dp < 10) {
+        return "Fühlt sich frisch/kühl an.";
+      } else if (dp < 16) {
+        return "Angenehm.";
+      } else if (dp < 18) {
+        return "Leicht schwül.";
+      } else if (dp < 21) {
+        return "Schwül.";
+      } else if (dp < 24) {
+        return "Sehr schwül.";
+      } else {
+        return "Extreme Schwüle / tropisch.";
+      }
+    }
+
+    fetchWeather();
   </script>
 </body>
 </html>
+
