@@ -5,96 +5,126 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Taupunkt Rechner Freiburg</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; max-width: 400px; margin: auto; }
-    input { font-size: 1.2em; width: 100%; margin-bottom: 10px; padding: 5px; }
-    button { font-size: 1.2em; width: 100%; padding: 10px; }
-    .result { margin-top: 20px; font-size: 1.2em; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0; padding: 0;
+      display: flex; flex-direction: column;
+      align-items: center;
+      background: #f4f4f4;
+      color: #333;
+    }
+    header {
+      text-align: center;
+      padding: 20px;
+    }
+    header img {
+      max-width: 80%;
+      height: auto;
+      border-radius: 12px;
+      margin-bottom: 10px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.5em;
+    }
+    main {
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    input {
+      font-size: 1.2em;
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      box-sizing: border-box;
+    }
+    button {
+      font-size: 1.2em;
+      width: 100%;
+      padding: 10px;
+      margin-top: 20px;
+      background: #005f73;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+    button:hover {
+      background: #0a9396;
+    }
+    .result, .forecast {
+      margin-top: 20px;
+      font-size: 1.1em;
+      display: none;
+    }
   </style>
 </head>
 <body>
-  <h1>Taupunkt Rechner Freiburg</h1>
 
-  <div id="weatherInfo">Lade aktuelle Wetterdaten...</div>
+  <header>
+    <img src="Freiburg.png" alt="Freiburg Illustration">
+    <h1>Taupunkt Rechner Freiburg</h1>
+  </header>
 
-  <label>Temperatur (°C):</label>
-  <input type="number" inputmode="decimal" pattern="[0-9]*" id="temp" />
+  <main>
+    <label>Temperatur (°C):</label>
+    <input type="number" inputmode="decimal" id="temp" />
 
-  <label>Luftfeuchtigkeit (%):</label>
-  <input type="number" inputmode="decimal" pattern="[0-9]*" id="hum" />
+    <label>Luftfeuchtigkeit (%):</label>
+    <input type="number" inputmode="decimal" id="hum" />
 
-  <button onclick="calculate()">Berechnen</button>
+    <button onclick="calculate()">Berechnen</button>
 
-  <div class="result" id="result"></div>
+    <div class="result" id="result"></div>
+    <div class="forecast" id="forecast"></div>
+  </main>
 
   <script>
-    const apiKey = '14ab2fd9354a34c320b01404fb29c66d';
-
-    async function fetchWeather() {
-      try {
-        const currentRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=Freiburg,DE&units=metric&appid=${apiKey}&lang=de`);
-        if (!currentRes.ok) throw new Error("Fehler beim Abruf der aktuellen Wetterdaten");
-        const currentData = await currentRes.json();
-
-        const forecastRes = await fetch(`https://api.openweathermap.org/data/2.5/forecast?q=Freiburg,DE&units=metric&appid=${apiKey}&lang=de`);
-        if (!forecastRes.ok) throw new Error("Fehler beim Abruf der Vorhersage");
-        const forecastData = await forecastRes.json();
-
-        const T = currentData.main.temp;
-        const RH = currentData.main.humidity;
-
-        document.getElementById('temp').value = T;
-        document.getElementById('hum').value = RH;
-
-        const dpNow = calculateDewpoint(T, RH);
-        const schwueleNow = classifyDewpoint(dpNow);
-
-        // Vorhersage in 3h
-        const forecast = forecastData.list[1];
-        const T3 = forecast.main.temp;
-        const RH3 = forecast.main.humidity;
-        const dp3 = calculateDewpoint(T3, RH3);
-        const schwuele3 = classifyDewpoint(dp3);
-
-        let trend = "";
-        if (dp3 > dpNow) {
-          trend = `In 3 Stunden steigt die Temperatur auf ${T3.toFixed(1)}°C bei ${RH3}% Feuchtigkeit. Es wird schwüler (${schwuele3}).`;
-        } else if (dp3 < dpNow) {
-          trend = `In 3 Stunden sinkt die Luftfeuchtigkeit auf ${RH3}% bei ${T3.toFixed(1)}°C. Es wird angenehmer (${schwuele3}).`;
-        } else {
-          trend = `In 3 Stunden bleibt es etwa gleich (${schwuele3}).`;
-        }
-
-        document.getElementById('weatherInfo').innerHTML = 
-          `Aktuelles Wetter in Freiburg:<br>
-          Temperatur: ${T.toFixed(1)} °C<br>
-          Luftfeuchtigkeit: ${RH}%<br>
-          Taupunkt: ${dpNow.toFixed(1)} °C (${schwueleNow})<br><br>` +
-          trend;
-
-        // Führe initiale Berechnung direkt durch
-        calculate();
-
-      } catch (error) {
-        console.error(error);
-        document.getElementById('weatherInfo').innerText = error.message;
-      }
-    }
-
-    function calculate() {
+    async function calculate() {
       const T = parseFloat(document.getElementById('temp').value);
       const RH = parseFloat(document.getElementById('hum').value);
 
       if (isNaN(T) || isNaN(RH)) {
-        document.getElementById('result').innerHTML = "Bitte gültige Werte eingeben.";
+        alert("Bitte gültige Werte eingeben.");
         return;
       }
 
-      const dewpoint = calculateDewpoint(T, RH);
-      const schwuele = classifyDewpoint(dewpoint);
+      const dp = calculateDewpoint(T, RH);
+      const schwuele = classifyDewpoint(dp);
 
       document.getElementById('result').innerHTML = 
-        "Taupunkt: " + dewpoint.toFixed(1) + " °C<br>" +
-        schwuele;
+        `Taupunkt: ${dp.toFixed(1)} °C<br>${schwuele}`;
+      document.getElementById('result').style.display = "block";
+
+      // Hole Vorhersage via Proxy API
+      const forecastRes = await fetch('/api/forecast?city=Freiburg');
+      const forecastData = await forecastRes.json();
+
+      const fc = forecastData.list[1];
+      const T3 = fc.main.temp;
+      const RH3 = fc.main.humidity;
+      const dp3 = calculateDewpoint(T3, RH3);
+      const schwuele3 = classifyDewpoint(dp3);
+
+      let trend = "";
+      if (dp3 > dp) {
+        trend = `In 3 Stunden steigt die Temperatur auf ${T3.toFixed(1)}°C bei ${RH3}% Feuchtigkeit. Es wird schwüler (${schwuele3}).`;
+      } else if (dp3 < dp) {
+        trend = `In 3 Stunden sinkt die Luftfeuchtigkeit auf ${RH3}% bei ${T3.toFixed(1)}°C. Es wird angenehmer (${schwuele3}).`;
+      } else {
+        trend = `In 3 Stunden bleibt es etwa gleich (${schwuele3}).`;
+      }
+
+      document.getElementById('forecast').innerHTML = trend;
+      document.getElementById('forecast').style.display = "block";
     }
 
     function calculateDewpoint(T, RH) {
@@ -111,8 +141,7 @@
       if (dp < 24) return "Sehr schwül.";
       return "Extreme Schwüle / tropisch.";
     }
-
-    fetchWeather();
   </script>
+
 </body>
 </html>
