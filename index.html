@@ -9,8 +9,17 @@
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       margin: 0;
       padding: 20px;
-      background: #f4f4f4;
+      background: url('lorettoberg.jpg') no-repeat center center fixed;
+      background-size: cover;
       color: #333;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(255,255,255,0.5);
+      z-index: -1;
     }
     h1 {
       text-align: center;
@@ -75,6 +84,21 @@
   </main>
 
   <script>
+    function calculateDewpoint(T, RH) {
+      const a = 17.62, b = 243.12;
+      const gamma = Math.log(RH/100) + (a * T)/(b + T);
+      return (b * gamma) / (a - gamma);
+    }
+
+    function classifyDewpoint(dp) {
+      if (dp < 10) return "❄️ Frisch/kühl";
+      if (dp < 16) return "🙂 Angenehm";
+      if (dp < 18) return "😅 Leicht schwül";
+      if (dp < 21) return "🥵 Schwül";
+      if (dp < 24) return "🌴 Sehr schwül";
+      return "🔥 Extrem schwül / tropisch";
+    }
+
     async function calculate() {
       const T = parseFloat(document.getElementById('temp').value);
       const RH = parseFloat(document.getElementById('hum').value);
@@ -88,7 +112,7 @@
       const schwuele = classifyDewpoint(dp);
 
       document.getElementById('result').innerHTML = 
-        `Taupunkt: ${dp.toFixed(1)} °C<br>${schwuele}`;
+        `Aktuell: ${dp.toFixed(1)} °C Taupunkt – ${schwuele}`;
       document.getElementById('result').style.display = "block";
 
       // Hole Forecast via Proxy API
@@ -97,20 +121,17 @@
         const forecastData = await forecastRes.json();
 
         if (forecastData.list && forecastData.list.length > 1) {
-          const fc = forecastData.list[1]; // Vorhersage in ca. 3 Stunden
+          const fc = forecastData.list[1]; // in ca. 3 Stunden
           const T3 = fc.main.temp;
           const RH3 = fc.main.humidity;
           const dp3 = calculateDewpoint(T3, RH3);
           const schwuele3 = classifyDewpoint(dp3);
 
-          let trend = "";
-          if (dp3 > dp) {
-            trend = `In 3 Stunden steigt die Temperatur auf ${T3.toFixed(1)}°C bei ${RH3}% Feuchtigkeit. Es wird schwüler (${schwuele3}).`;
-          } else if (dp3 < dp) {
-            trend = `In 3 Stunden sinkt die Luftfeuchtigkeit auf ${RH3}% bei ${T3.toFixed(1)}°C. Es wird angenehmer (${schwuele3}).`;
-          } else {
-            trend = `In 3 Stunden bleibt es etwa gleich (${schwuele3}).`;
-          }
+          let trendEmoji = "➡️";
+          if (dp3 > dp + 0.5) trendEmoji = "⬆️";
+          else if (dp3 < dp - 0.5) trendEmoji = "⬇️";
+
+          let trend = `${trendEmoji} In 3 Stunden: ${dp3.toFixed(1)} °C Taupunkt (${schwuele3}) bei ${T3.toFixed(1)}°C und ${RH3}% Feuchtigkeit.`;
 
           document.getElementById('forecast').innerHTML = trend;
           document.getElementById('forecast').style.display = "block";
@@ -124,22 +145,7 @@
       }
     }
 
-    function calculateDewpoint(T, RH) {
-      const a = 17.62, b = 243.12;
-      const gamma = Math.log(RH/100) + (a * T)/(b + T);
-      return (b * gamma) / (a - gamma);
-    }
-
-    function classifyDewpoint(dp) {
-      if (dp < 10) return "Fühlt sich frisch/kühl an.";
-      if (dp < 16) return "Angenehm.";
-      if (dp < 18) return "Leicht schwül.";
-      if (dp < 21) return "Schwül.";
-      if (dp < 24) return "Sehr schwül.";
-      return "Extreme Schwüle / tropisch.";
-    }
-
-    // Hole aktuelle Wetterdaten und fülle als Default
+    // Hole aktuelle Wetterdaten, fülle Default-Werte und klicke automatisch auf Berechnen
     (async () => {
       try {
         const res = await fetch('/api/weather?city=Freiburg');
@@ -151,6 +157,8 @@
         document.getElementById('temp').value = 22;
         document.getElementById('hum').value = 50;
       }
+      // Warte kurz, dann rechne automatisch
+      setTimeout(() => { calculate(); }, 500);
     })();
   </script>
 
