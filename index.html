@@ -7,37 +7,27 @@
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      margin: 0; padding: 0;
-      display: flex; flex-direction: column;
-      align-items: center;
+      margin: 0;
+      padding: 20px;
       background: #f4f4f4;
       color: #333;
     }
-    header {
-      text-align: center;
-      padding: 20px;
-    }
-    header img {
-      max-width: 80%;
-      height: auto;
-      border-radius: 12px;
-      margin-bottom: 10px;
-    }
     h1 {
-      margin: 0;
-      font-size: 1.5em;
+      text-align: center;
+      font-size: 1.6em;
+      margin-bottom: 20px;
     }
     main {
       background: #fff;
       border-radius: 10px;
       padding: 20px;
       max-width: 400px;
-      width: 90%;
+      margin: 0 auto;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     label {
       display: block;
-      margin-top: 10px;
+      margin-top: 15px;
       font-weight: bold;
     }
     input {
@@ -56,23 +46,20 @@
       color: white;
       border: none;
       border-radius: 5px;
+      cursor: pointer;
     }
     button:hover {
       background: #0a9396;
     }
-    .result, .forecast {
+    .section {
       margin-top: 20px;
-      font-size: 1.1em;
       display: none;
     }
   </style>
 </head>
 <body>
 
-  <header>
-    <img src="Freiburg.png" alt="Freiburg Illustration">
-    <h1>Taupunkt Rechner Freiburg</h1>
-  </header>
+  <h1>Taupunkt Rechner Freiburg</h1>
 
   <main>
     <label>Temperatur (°C):</label>
@@ -83,8 +70,8 @@
 
     <button onclick="calculate()">Berechnen</button>
 
-    <div class="result" id="result"></div>
-    <div class="forecast" id="forecast"></div>
+    <div class="section" id="result"></div>
+    <div class="section" id="forecast"></div>
   </main>
 
   <script>
@@ -104,27 +91,37 @@
         `Taupunkt: ${dp.toFixed(1)} °C<br>${schwuele}`;
       document.getElementById('result').style.display = "block";
 
-      // Hole Vorhersage via Proxy API
-      const forecastRes = await fetch('/api/forecast?city=Freiburg');
-      const forecastData = await forecastRes.json();
+      // Hole Forecast via Proxy API
+      try {
+        const forecastRes = await fetch('/api/forecast?city=Freiburg');
+        const forecastData = await forecastRes.json();
 
-      const fc = forecastData.list[1];
-      const T3 = fc.main.temp;
-      const RH3 = fc.main.humidity;
-      const dp3 = calculateDewpoint(T3, RH3);
-      const schwuele3 = classifyDewpoint(dp3);
+        if (forecastData.list && forecastData.list.length > 1) {
+          const fc = forecastData.list[1]; // Vorhersage in ca. 3 Stunden
+          const T3 = fc.main.temp;
+          const RH3 = fc.main.humidity;
+          const dp3 = calculateDewpoint(T3, RH3);
+          const schwuele3 = classifyDewpoint(dp3);
 
-      let trend = "";
-      if (dp3 > dp) {
-        trend = `In 3 Stunden steigt die Temperatur auf ${T3.toFixed(1)}°C bei ${RH3}% Feuchtigkeit. Es wird schwüler (${schwuele3}).`;
-      } else if (dp3 < dp) {
-        trend = `In 3 Stunden sinkt die Luftfeuchtigkeit auf ${RH3}% bei ${T3.toFixed(1)}°C. Es wird angenehmer (${schwuele3}).`;
-      } else {
-        trend = `In 3 Stunden bleibt es etwa gleich (${schwuele3}).`;
+          let trend = "";
+          if (dp3 > dp) {
+            trend = `In 3 Stunden steigt die Temperatur auf ${T3.toFixed(1)}°C bei ${RH3}% Feuchtigkeit. Es wird schwüler (${schwuele3}).`;
+          } else if (dp3 < dp) {
+            trend = `In 3 Stunden sinkt die Luftfeuchtigkeit auf ${RH3}% bei ${T3.toFixed(1)}°C. Es wird angenehmer (${schwuele3}).`;
+          } else {
+            trend = `In 3 Stunden bleibt es etwa gleich (${schwuele3}).`;
+          }
+
+          document.getElementById('forecast').innerHTML = trend;
+          document.getElementById('forecast').style.display = "block";
+        } else {
+          document.getElementById('forecast').innerHTML = "Keine Vorhersage verfügbar.";
+          document.getElementById('forecast').style.display = "block";
+        }
+      } catch (error) {
+        document.getElementById('forecast').innerHTML = "Fehler beim Abrufen der Vorhersage.";
+        document.getElementById('forecast').style.display = "block";
       }
-
-      document.getElementById('forecast').innerHTML = trend;
-      document.getElementById('forecast').style.display = "block";
     }
 
     function calculateDewpoint(T, RH) {
@@ -141,6 +138,20 @@
       if (dp < 24) return "Sehr schwül.";
       return "Extreme Schwüle / tropisch.";
     }
+
+    // Hole aktuelle Wetterdaten und fülle als Default
+    (async () => {
+      try {
+        const res = await fetch('/api/weather?city=Freiburg');
+        const data = await res.json();
+        document.getElementById('temp').value = data.main.temp;
+        document.getElementById('hum').value = data.main.humidity;
+      } catch (error) {
+        console.log("Fehler beim Laden der aktuellen Wetterdaten", error);
+        document.getElementById('temp').value = 22;
+        document.getElementById('hum').value = 50;
+      }
+    })();
   </script>
 
 </body>
